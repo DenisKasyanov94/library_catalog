@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "library-catalog"
+version = "1.0.0"
+description = "REST API для управления библиотечным каталогом"
+authors = ["Ваше Имя <you@example.com>"]
+readme = "README.md"
+packages = [{ include = "library_catalog", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.30" }
+# extras = ["asyncio"] ставит greenlet — без него async SQLAlchemy не заведётся
+sqlalchemy = { extras = ["asyncio"], version = "^2.0" }
+alembic = "^1.13"
+asyncpg = "^0.29"
+pydantic = "^2.7"
+pydantic-settings = "^2.3"
+httpx = "^0.27"
+python-dotenv = "^1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.23"
+black = "^24.0"
+ruff = "^0.4"
+mypy = "^1.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
