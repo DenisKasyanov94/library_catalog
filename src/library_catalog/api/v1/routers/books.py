@@ -10,6 +10,7 @@ from library_catalog.api.v1.schemas.book import BookCreate, BookRead, BookUpdate
 from library_catalog.core.database import async_session_factory
 from library_catalog.data.repositories.book_repository import BookRepository
 from library_catalog.domain.services.book_service import BookService
+from library_catalog.external.openlibrary.client import OpenLibraryClient
 
 router = APIRouter(prefix="/books", tags=["books"])
 
@@ -55,6 +56,19 @@ async def list_books(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/external-search", response_model=list[dict])
+async def external_search(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+) -> list[dict]:
+    """Ищет книги во внешнем каталоге Open Library."""
+    client = OpenLibraryClient()
+    try:
+        return await client.search(q, limit=limit)
+    finally:
+        await client.close()
 
 
 @router.get("/{book_id}", response_model=BookRead)
