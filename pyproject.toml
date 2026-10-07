@@ -2,7 +2,7 @@
 name = "library-catalog"
 version = "1.0.0"
 description = "REST API для управления библиотечным каталогом"
-authors = ["Ваше Имя <you@example.com>"]
+authors = ["Касьянов Денис"]
 readme = "README.md"
 packages = [{ include = "library_catalog", from = "src" }]
 

@@ -19,7 +19,7 @@ docker compose up -d postgres
 poetry install
 
 # 3. Запустить сервер
-poetry run uvicorn src.library_catalog.main:app --reload
+poetry run uvicorn library_catalog.main:app --reload
 ```
 
 Swagger: http://127.0.0.1:8000/docs
