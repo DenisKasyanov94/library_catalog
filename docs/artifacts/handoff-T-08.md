@@ -225,3 +225,69 @@ exit 2.
    (fail-closed), grandfathering по `--since` сохранён.
 3. Minor-замечания итерации 1–2 (N2–N6, S5–S10, П-3) не входили в этот фикс-раунд и остались
    в бэклоге; в проекте `library_catalog` изменён только этот handoff-файл.
+
+## Фикс-раунд CR-3
+
+- **Дата:** 2026-10-29 | **Коммит:** `c9f14cb` (репозиторий `d:\vscode-data\User\prompts`, `origin` не настроен — пуш невозможен)
+- **Изменённые файлы (4):** `agent-system/tools/journal.py`, `agent-system/handoff-contracts.spec.md`,
+  `agent-system/session-journal.spec.md`, `team-lead.agent.md` (+158 / −35).
+- **Замечание CR (итерация 3, единственный оставшийся Major P1):** профиль `ui` есть в
+  `quality-gates.spec.md` §2 (строка 66) и `team-profiles.yaml:31`, но отсутствовал в
+  `TL2DEV_PROFILES` → `append task_assigned profile="ui"` отказывал с `exit 1`
+  (`profile='ui' вне словаря`). Агентский состав из yaml и допустимые значения в коде
+  расходились: UI-задачу нельзя было даже открыть в журнале.
+
+**Правки:**
+
+1. **`ui` — полноправный профиль задачи.** Один набор профилей на три дома: `TL2DEV_PROFILES`
+   (+`ui`) → автоматически словарь события `EVENT_ENUMS["task_assigned"]`, `--validate-contract
+   --profile`, справка CLI. Дописано там, где набор задаётся явно: колонка `ui` в
+   `TL2DEV_MATRIX` (совпадает с `feature`: публичные компоненты/пропсы — такая же публичная
+   поверхность), `DONE_GATE_REQUIREMENTS["ui"] = ("qa", "cr")` и `DONE_GATE_MIN_LEVEL["ui"] =
+   "light"` — по `quality-gates.spec.md` §2: артефакты отчётов у `ui` обязательны только при
+   уровне ≥ `normal`, поэтому docs-гейт не требуется.
+2. **Сверка набора профилей с `team-profiles.yaml` — в `--self-test`, а не «на глаз».**
+   `TEAM_PROFILES_FILE` (путь к yaml от `tools/`), `TEAM_PROFILE_ALIASES` (`new_feature` →
+   `feature`, `deploy` → `infra` — исторические имена, заданы явно), `TEAM_PROFILE_NON_TASK =
+   ("routing",)` (роутер потребляет профили, но сам профилем задачи не является).
+   `team_profiles_from_yaml()` читает секцию `profiles:` внутри fenced-блока **без PyYAML**
+   (regex), `team_profiles_mapped()` приводит имена к профилям задачи.
+3. **Спеки синхронизированы.** `handoff-contracts.spec.md`: перечень профилей, комментарий
+   шаблона, колонка `ui` в матрице «поле × профиль», абзац о едином наборе и alias.
+   `session-journal.spec.md`: перечень допустимых `task_assigned.profile` + строка таблицы
+   гейта (`ui` → `verdict`+`review`). `team-lead.agent.md`: комментарий шаблона.
+
+**Регресс в `--self-test` (+6 проверок: 243 → 249), функция `_selftest_profile_source`:**
+
+- `team-profiles.yaml` читается, секция `profiles:` найдена (≥ |`TL2DEV_PROFILES`| имён);
+- набор профилей задачи **==** набору в `team-profiles.yaml` (с учётом alias);
+- каждый alias ведёт в существующий профиль и есть в yaml, не пересекается с `routing`;
+- у каждого профиля есть и гейт `done`, и min-уровень (`DONE_GATE_REQUIREMENTS` ==
+  `DONE_GATE_MIN_LEVEL` == `TL2DEV_PROFILES`);
+- end-to-end: `append task_assigned profile="ui"` → `exit 0`, в журнале `task_assigned`;
+- `tl2dev`: полный `ui`-контракт валиден (`_tl2dev_ui_contract`, матрица как у `feature`).
+
+Проверка прежнего поведения «неизвестный профиль отклонён» переведена с `ui` на `design`
+(`ui` больше не неизвестен). Fail-closed проверки набора подтверждён зондом: копия yaml с
+добавленным профилем `mobile` → `mismatch` (проверка краснеет, а не молчит).
+
+| Проверка | Результат |
+|---|---|
+| `python agent-system\tools\journal.py --self-test` | **exit 0**, `SELF-TEST OK (249 checks)` (было 243) |
+| `append task_assigned profile="ui"` (зонд и self-test) | exit 0, событие записано |
+| зонд fail-closed: профиль `mobile` только в копии yaml | `team_profiles_mapped != TL2DEV_PROFILES` → проверка падает |
+| разбор yaml без PyYAML | `['refactoring','new_feature','bugfix','deploy','docs','ui','routing']` → mapped `{bugfix,docs,feature,infra,refactoring,ui}` |
+| `git status --short` (prompts) | пусто (4 файла закоммичены) |
+| `git log --oneline -1` (prompts) | `c9f14cb` (HEAD → main) |
+
+**Аномалии фикс-раунда CR-3:**
+
+1. `git remote` в `d:\vscode-data\User\prompts` отсутствует → пуш `c9f14cb` физически невозможен
+   (как `0bc1ac3`, `56ea9a0`, `8cc10d1`); `origin/main` = локальный `main` проверить нечем.
+2. Решение по матрице: `ui` зеркалит `feature` (включая `mock_justification` R) — в спеках
+   отдельного набора полей для UI нет, а UI-тесты штатно мокают API; это расширение
+   требований для нового профиля, а не перенос чужого. Если тимлид считает иначе — колонка
+   правится в одном месте (`TL2DEV_MATRIX`).
+3. Имена профилей в двух источниках различаются исторически (`new_feature`/`deploy` против
+   `feature`/`infra`); переименование yaml не делалось (blast radius — все агентские доки),
+   расхождение зафиксировано явными alias и проверкой в `--self-test`.
